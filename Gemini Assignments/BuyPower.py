@@ -17,17 +17,33 @@ class Battery:
         self.current_soc = current_soc
         self.efficiency = efficiency
     
-    def calculate_profit(self, buy_price, sell_price):
-        buy_wh = buy_price/1000.0
-        sell_kwh = sell_price/1000.0
-        energy_to_buy = self.capacity_kwh * (1 - self.current_soc) 
-        cost = energy_to_buy * buy_wh
+    def charge(self, amount_kwh):
+        #cant charge more than the capacity of the battery
+        available_space = self.capacity_kwh * (1 - self.current_soc)
+        actual_charge = min(amount_kwh, available_space)
+        # if self.current_soc + (amount_kwh / self.capacity_kwh) > 1.0:
+        #     raise ValueError("Cannot charge beyond 100% SOC")
+        self.current_soc += actual_charge / self.capacity_kwh
+        return actual_charge
+    
+    def discharge(self, amount_kwh):
+        #cant discharge more than the current SOC of the battery
+        available_energy = self.capacity_kwh * (self.current_soc - 0.2) # we want to keep at least 20% SOC to preserve battery health
+        actual_discharge = min(amount_kwh, available_energy)
+        energy__delivered = actual_discharge * self.efficiency
+        self.current_soc -= actual_discharge / self.capacity_kwh
+        return energy__delivered
+    
+    def calculate_profit(self, buy_price, sell_price, amount_kwh):
+        buy_price_kwh = buy_price/1000.0
+        sell_price_kwh = sell_price/1000.0
+        charged = self.charge(amount_kwh)
+        discharged = self.discharge(charged) 
+        cost = charged * buy_price_kwh
+        sell = discharged * sell_price_kwh
+        return sell - cost
 
-        #sell the energy and loss some efficiency.
-        energy_to_sell = self.capacity_kwh * self.efficiency
-        sell = energy_to_sell * sell_kwh
-        profit = sell- cost
-        return profit
+      
 
 # Hourly prices for March 8, 2026 (EPEX SPOT BE)
 # Prices in Euro per Megawatt-hour (€/MWh)
@@ -37,11 +53,13 @@ prices_mwh = [
     92.92, 158.70, 185.23, 154.05, 141.50, 128.55, 123.86, 119.55
 ]
 battery1 = Battery(10.0, 0.2)
-highest_price = max(prices_mwh)
-lowest_price = min(prices_mwh) 
+# battery1.charge(5.0)  # Charge the battery with 5 kWh
+# battery1.discharge(3.0)  # Discharge 3 kWh from the battery
+sell_price = max(prices_mwh)
+buy_price = min(prices_mwh) 
 # if (battery1.current_soc >0.6 and battery1.current_soc <= 0.9):
-profit1 = battery1.calculate_profit(lowest_price,highest_price)
-print(f"The profit made was {profit1}")
+profit1 = battery1.calculate_profit(buy_price,sell_price, 5.0)
+print(f"The profit made was {profit1:.2f} Euros")
 
 
 
